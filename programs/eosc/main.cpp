@@ -41,26 +41,26 @@ const string account_history_func_base = "/v1/account_history";
 const string get_transaction_func = account_history_func_base + "/get_transaction";
 
 
-inline std::vector<Name> sort_names( std::vector<Name>&& names ) {
-   std::sort( names.begin(), names.end() );
-   auto itr = std::unique( names.begin(), names.end() );
+inline vector<Name> sort_names( vector<Name>&& names ) {
+   sort( names.begin(), names.end() );
+   auto itr = unique( names.begin(), names.end() );
    names.erase( itr, names.end() );
    return names;
 }
 
-vector<uint8_t> assemble_wast( const std::string& wast ) {
+vector<uint8_t> assemble_wast( const string& wast ) {
    IR::Module module;
-   std::vector<WAST::Error> parseErrors;
+   vector<WAST::Error> parseErrors;
    WAST::parseModule(wast.c_str(),wast.size(),module,parseErrors);
    if(parseErrors.size())
    {
       // Print any parse errors;
-      std::cerr << "Error parsing WebAssembly text file:" << std::endl;
+      cerr << "Error parsing WebAssembly text file:" << endl;
       for(auto& error : parseErrors)
       {
-         std::cerr << ":" << error.locus.describe() << ": " << error.message.c_str() << std::endl;
-         std::cerr << error.locus.sourceLine << std::endl;
-         std::cerr << std::setw(error.locus.column(8)) << "^" << std::endl;
+         cerr << ":" << error.locus.describe() << ": " << error.message.c_str() << endl;
+         cerr << error.locus.sourceLine << endl;
+         cerr << setw(error.locus.column(8)) << "^" << endl;
       }
       FC_ASSERT( !"error parsing wast" );
    }
@@ -74,25 +74,25 @@ vector<uint8_t> assemble_wast( const std::string& wast ) {
    }
    catch(Serialization::FatalSerializationException exception)
    {
-      std::cerr << "Error serializing WebAssembly binary file:" << std::endl;
-      std::cerr << exception.message << std::endl;
+      cerr << "Error serializing WebAssembly binary file:" << endl;
+      cerr << exception.message << endl;
       throw;
    }
 }
 
 
 
-fc::variant call( const std::string& server, uint16_t port,
-                  const std::string& path,
+fc::variant call( const string& server, uint16_t port,
+                  const string& path,
                   const fc::variant& postdata = fc::variant() );
 
 template<typename T>
-fc::variant call( const std::string& server, uint16_t port,
-                  const std::string& path,
+fc::variant call( const string& server, uint16_t port,
+                  const string& path,
                   const T& v ) { return call( server, port, path, fc::variant(v) ); }
 
 template<typename T>
-fc::variant call( const std::string& path,
+fc::variant call( const string& path,
                   const T& v ) { return call( host, port, path, fc::variant(v) ); }
 
 eos::chain_apis::read_only::get_info_results get_info() {
@@ -131,7 +131,7 @@ void create_account( const vector<string>& cmd_line ) {
                          types::newaccount{creator, newaccount, owner_auth,
                                            active_auth, recovery_auth, deposit});
 
-      std::cout << fc::json::to_pretty_string( push_transaction(trx) ) << std::endl;
+      cout << fc::json::to_pretty_string( push_transaction(trx) ) << endl;
 
 
 }
@@ -158,7 +158,7 @@ return true;
 char read_line_and_split (vector<string> &cmd_line, char tic) {
   string line;
   bool in_quote = (tic != '\0');
-  std::getline(std::cin,line);
+  getline(cin,line);
   size_t tic_pos = 0;
   size_t quote_end = 0;
   if (in_quote) {
@@ -241,17 +241,17 @@ int send_command (const vector<string> &cmd_line)
 {
   const auto& command = cmd_line[0];
   if( command == "help" ) {
-    std::cout << "Command list: info, block, exec, account, push-trx, setcode, transfer, create, import, unlock, lock, and do\n";
+    cout << "Command list: info, block, exec, account, push-trx, setcode, transfer, create, import, unlock, lock, and do\n";
     return -1;
   }
 
   else if( command == "info" ) {
-    std::cout << fc::json::to_pretty_string( get_info() ) << std::endl;
+    cout << fc::json::to_pretty_string( get_info() ) << endl;
   }
   else if( command == "block" ) {
     FC_ASSERT( cmd_line.size() == 2 );
     auto arg=fc::mutable_variant_object( "block_num_or_id", cmd_line[1]);
-    std::cout << fc::json::to_pretty_string( call (get_block_func, arg)) << std::endl;
+    cout << fc::json::to_pretty_string( call (get_block_func, arg)) << endl;
   }
   else if( command == "exec" ) {
     FC_ASSERT( cmd_line.size() >= 6 );
@@ -272,24 +272,24 @@ int send_command (const vector<string> &cmd_line)
     trx.scope = fc::json::from_string( cmd_line[4] ).as<vector<Name>>();
 
     auto trx_result = push_transaction( trx );
-    std::cout << fc::json::to_pretty_string( trx_result ) << std::endl;
+    cout << fc::json::to_pretty_string( trx_result ) << endl;
 
   } else if( command == "account" ) {
     FC_ASSERT( cmd_line.size() == 2 );
-    std::cout << fc::json::to_pretty_string( call( get_account_func,
-                                                   fc::mutable_variant_object( "name", cmd_line[1] ) ) ) << std::endl;
+    cout << fc::json::to_pretty_string( call( get_account_func,
+                                                   fc::mutable_variant_object( "name", cmd_line[1] ) ) ) << endl;
   }
   else if( command == "push-trx" ) {
     auto trx_result = call (push_txn_func, fc::json::from_string( cmd_line[1]));
-    std::cout << fc::json::to_pretty_string(trx_result) << std::endl;
+    cout << fc::json::to_pretty_string(trx_result) << endl;
   } else if ( command == "setcode" ) {
     if( cmd_line.size() == 1 ) {
-      std::cout << "usage: "<< program << " " << command <<" ACCOUNT FILE.WAST FILE.ABI" << std::endl;
+      cout << "usage: "<< program << " " << command <<" ACCOUNT FILE.WAST FILE.ABI" << endl;
       return -1;
     }
     Name account(cmd_line[1]);
     const auto& wast_file = cmd_line[2];
-    std::string wast;
+    string wast;
 
     FC_ASSERT( fc::exists(wast_file) );
     fc::read_file_contents( wast_file, wast );
@@ -311,7 +311,7 @@ int send_command (const vector<string> &cmd_line)
     transaction_helpers::emplace_message(trx,  config::EosContractName, vector<types::AccountPermission>{{account,"active"}},
                         "setcode", handler );
 
-    std::cout << fc::json::to_pretty_string( push_transaction(trx)  ) << std::endl;
+    cout << fc::json::to_pretty_string( push_transaction(trx)  ) << endl;
 
   } else if( command == "transfer" ) {
     FC_ASSERT( cmd_line.size() == 4 );
@@ -328,12 +328,12 @@ int send_command (const vector<string> &cmd_line)
     trx.expiration = info.head_block_time + 100; //chain.head_block_time() + 100;
     transaction_helpers::set_reference_block(trx, info.head_block_id);
 
-    std::cout << fc::json::to_pretty_string( call( push_txn_func, trx )) << std::endl;
+    cout << fc::json::to_pretty_string( call( push_txn_func, trx )) << endl;
   }
   else if (command == "create" ) {
     if( cmd_line[1] == "account" ) {
       if( cmd_line.size() < 6 ) {
-        std::cerr << "usage: " << program << " create account CREATOR NEWACCOUNT OWNERKEY ACTIVEKEY\n";
+        cerr << "usage: " << program << " create account CREATOR NEWACCOUNT OWNERKEY ACTIVEKEY\n";
         return -1;
       }
       create_account( cmd_line );
@@ -342,22 +342,22 @@ int send_command (const vector<string> &cmd_line)
       auto priv = fc::ecc::private_key::generate();
       auto pub = public_key_type( priv.get_public_key() );
 
-      std::cout << "public: " << string(pub) <<"\n";
-      std::cout << "private: " << key_to_wif(priv.get_secret()) << std::endl;
+      cout << "public: " << string(pub) <<"\n";
+      cout << "private: " << key_to_wif(priv.get_secret()) << endl;
     }
     else {
-      std::cerr << "create doesn't recognize object " << cmd_line[1] << std::endl;
+      cerr << "create doesn't recognize object " << cmd_line[1] << endl;
     }
   } else if( command == "import" ) {
     if( cmd_line[1] == "key" ) {
       auto secret = wif_to_key( cmd_line[2] ); //fc::variant( cmd_line[2] ).as<fc::ecc::private_key_secret>();
       if( !secret ) {
-        std::cerr << "invalid WIF private key" << std::endl;;
+        cerr << "invalid WIF private key" << endl;;
         return -1;
       }
       auto priv = fc::ecc::private_key::regenerate(*secret);
       auto pub = public_key_type( priv.get_public_key() );
-      std::cout << "public: " << string(pub) << std::endl;;
+      cout << "public: " << string(pub) << endl;;
     }
   }else if( command == "unlock" ) {
 
@@ -368,7 +368,7 @@ int send_command (const vector<string> &cmd_line)
   } else if( command == "transaction" ) {
      FC_ASSERT( cmd_line.size() == 2 );
      auto arg= fc::mutable_variant_object( "transaction_id", cmd_line[1]);
-     std::cout << fc::json::to_pretty_string( call( get_transaction_func, arg) ) << std::endl;
+     cout << fc::json::to_pretty_string( call( get_transaction_func, arg) ) << endl;
   }
   return 0;
 }
@@ -377,7 +377,7 @@ int send_command (const vector<string> &cmd_line)
 /**
  *   Usage:
  *
- *   eosc - [optional command] < script
+ *   eosc [optional command] - < script
  *     or *   eocs create wallet walletname  ***PASS1*** ***PASS2***
  *   eosc unlock walletname  ***PASSWORD***
  *   eosc create wallet walletname  ***PASS1*** ***PASS2***
@@ -403,6 +403,7 @@ int main( int argc, char** argv ) {
   uint32_t cycles=1;
   vector<vector<string> > script;
   program = argv[0];
+  bool batch_nostop_onerrors = false;
 
   for( uint32_t i = 1; i < argc; ++i ) {
     is_cmd |= (*argv[i] != '-');
@@ -410,6 +411,8 @@ int main( int argc, char** argv ) {
       from_stdin |= (*(argv[i]+1) == '\0');
       if (!from_stdin) {
         // TODO: parse arguments, --batch=<1|0> --cycles=<n> --input=<1|0>
+        if(strcmp("--batch-nostop-onerrors", argv[i])==0)
+          batch_nostop_onerrors = true;
       }
     }
     else {
@@ -425,7 +428,7 @@ int main( int argc, char** argv ) {
       }
     }
   } catch ( const fc::exception& e ) {
-    std::cerr << e.to_detail_string() << std::endl;
+    cerr << e.to_detail_string() << endl;
     return 0;
   }
 
@@ -435,13 +438,13 @@ int main( int argc, char** argv ) {
     char tic = '\0';
     vector<string> cmd_line;
     if (console) {
-      std::cout << "press ^d when done" << std::endl;
+      cout << "press ^d when done" << endl;
     }
-    while (std::cin.good()) {
+    while (cin.good()) {
       if (tic == '\0') {
         cmd_line.clear();
         if (console) {
-          std::cout << "enter command: " << std::flush;
+          cout << "enter command: " << flush;
         }
       }
 
@@ -463,13 +466,26 @@ int main( int argc, char** argv ) {
     int res = 0;
     while (cycles--) {
       for (auto scmd : script) {
-        if ((res = send_command (scmd)) != 0) {
-          return res;
+        if (batch_nostop_onerrors) 
+        {
+          try {
+            if ((res = send_command (scmd)) != 0) {
+              return res;
+            }
+          } catch ( const fc::exception& e ) {
+            cerr << e.to_detail_string() << endl;
+          }
+        }
+        else
+        {
+          if ((res = send_command (scmd)) != 0) {
+            return res;
+          }
         }
       }
     }
   } catch ( const fc::exception& e ) {
-    std::cerr << e.to_detail_string() << std::endl;
+    cerr << e.to_detail_string() << endl;
   }
   return 0;
 }
