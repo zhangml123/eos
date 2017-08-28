@@ -54,6 +54,8 @@
 #include <fstream>
 #include <functional>
 #include <iostream>
+#include <chrono>
+#include <generic.hpp>
 
 //#include <Wren++.h>
 namespace eos { namespace chain {
@@ -158,6 +160,23 @@ bool chain_controller::push_block(const signed_block& new_block, uint32_t skip)
 
 bool chain_controller::_push_block(const signed_block& new_block)
 { try {
+#if 0 // in progress
+   char tb[4098];
+   std::chrono::duration<double> perf_total_diff;
+   size_t perf_count = 0;
+
+          auto perf_end = std::chrono::high_resolution_clock::now();
+          perf_total_diff += (perf_end - perf_start);
+          perf_count++;
+
+	   size_t postponed_tx_count = _pending_transactions.size() - valid_transaction_count - invalid_transaction_count;   
+	   ilog( "perf ${n} tx/s, ${o} valid tx, ${p} invalid tx. ${q} pending tx", 
+	      ("n", V("%13.4f", (1.0 / perf_total_diff.count()) * perf_count))
+	      ("o", V("%7ld", valid_transaction_count))
+	      ("p", V("%7ld", invalid_transaction_count))
+	      ("q", postponed_tx_count) );
+#endif
+
    uint32_t skip = _skip_flags;
    if (!(skip&skip_fork_db)) {
       /// TODO: if the block is greater than the head block and before the next maintenance interval
@@ -343,7 +362,7 @@ signed_block chain_controller::_generate_block(
 
    size_t invalid_transaction_count = 0;
    size_t valid_transaction_count = 0;
-
+   
    for (const auto &c : schedule.cycles) {
      cycle block_cycle;
      block_cycle.reserve(c.size());
@@ -353,8 +372,9 @@ signed_block chain_controller::_generate_block(
        block_thread.user_input.reserve(t.transactions.size());
        block_thread.generated_input.reserve(t.transactions.size());
        for (const auto &trx : t.transactions) {
+          auto perf_start = std::chrono::high_resolution_clock::now();
           try
-          {
+          {             
              auto temp_session = _db.start_undo_session(true);
              if (trx.contains<std::reference_wrapper<const SignedTransaction>>()) {
                 const auto& t = trx.get<std::reference_wrapper<const SignedTransaction>>().get();
@@ -399,8 +419,9 @@ signed_block chain_controller::_generate_block(
         pending_block.cycles.emplace_back(std::move(block_cycle));
      }
    }
-   
+
    size_t postponed_tx_count = _pending_transactions.size() - valid_transaction_count - invalid_transaction_count;
+   
    if( postponed_tx_count > 0 )
    {
       wlog( "Postponed ${n} transactions due to block size limit", ("n", postponed_tx_count) );
