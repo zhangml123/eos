@@ -1,9 +1,9 @@
 #!/bin/ksh
 # Capacity Test - Currency Contract
 
-if [[ $# != 3 ]]; then
+if [[ $# != 3 ]] && [[ $# != 4 ]]; then
   echo This is a capacity test using eosc
-  echo Usage: captest_currency_contract.ksh NumberOfAccounts DurationSeconds Concurrency
+  echo Usage: captest_currency_contract.ksh NumberOfAccounts DurationSeconds Concurrency [PathToEOSD_stdoutFile]
   echo
   echo NumberOfAccounts
   echo There only needs to be enough accounts so that the same account isn\'t used in a 3 second time period
@@ -16,9 +16,13 @@ if [[ $# != 3 ]]; then
   echo Concurrency
   echo How many concurrent eosc instances would you like running at the same time
   echo
+  echo PathToEOSD_stdoutFile
+  echo If this optional parameter is provided then additional chain performance output will be seen during the test
+  echo
   echo example:
   echo   '#get eosd running, using a fresh chain every time'
-  echo   captest_currency_contract.ksh 10 6 1
+  echo   captest_currency_contract.ksh 3000 12 1
+  echo   captest_currency_contract.ksh 3000 12 1 eosd-stdout.txt
   echo
   exit
 fi
@@ -31,10 +35,18 @@ NumberOfAccounts=$1
 [[ $1 == 0 ]] && NumberOfAccounts=$(cat accounts_1_names.txt | wc -l)
 DurationSeconds=$2
 Concurrency=$3
+PathToEOSD_stdoutFile=none
+[[ $# == 4 ]] && PathToEOSD_stdoutFile=$4
 
 echo NumberOfAccounts = $NumberOfAccounts
 echo DurationSeconds = $DurationSeconds
 echo Concurrency = $Concurrency
+echo PathToEOSD_stdoutFile = $PathToEOSD_stdoutFile 
+
+if [[ $# == 4 ]] && [[ ! -f "$PathToEOSD_stdoutFile" ]]; then
+  echo Error: The 4th parameter file "$PathToEOSD_stdoutFile" could not be found or is not a file
+  exit
+fi
 
 if [[ $(pgrep eosd | wc -l) == 0 ]]; then
   echo Error: Please start eosd
@@ -148,21 +160,6 @@ function TransferToEOSAccounts
   touch ${1}_done.txt
 }
 
-function CreateCurrencyAccounts
-{
-  echo CreateCurrencyAccounts, running ${1}_create_currency_accounts_cmd.txt
-  NewFile ${1}_create_currency_accounts_results.txt
-  NewFile ${1}_create_currency_accounts_cmd.txt
-  for Row in $(paste -d',' ${1}_names.txt ${1}_keys.txt)
-  do
-    Name=$(echo $Row | awk -F',' '{print $1}')
-    PubKey=$(echo $Row | awk -F',' '{print $2}')
-    echo create account $Name currency $PubKey EOS6KdkmwhPyc2wxN9SAFwo2PU2h74nWs7urN1uRduAwkcns2uXsa >> ${1}_create_currency_accounts_cmd.txt
-  done
-  eosc - < ${1}_create_currency_accounts_cmd.txt >${1}_create_currency_accounts_results.txt
-  touch ${1}_done.txt
-}
-
 function CurrencyContractTransfer
 {
   echo CurrencyContractTransfer, running ${1}_currency_trx_cmd.txt
@@ -220,10 +217,6 @@ if [[ $1 != 0 ]]; then
   eosc create account testaaaaaaaa currency $(head -1 accounts_1_keys.txt) EOS6KdkmwhPyc2wxN9SAFwo2PU2h74nWs7urN1uRduAwkcns2uXsa >/dev/null 2>/dev/null
   sleep 4
 
-  #RemoveDone
-  #for Inst in $(seq $Concurrency); do; CreateCurrencyAccounts accounts_${Inst} &; done;
-  #WaitDone
-
   echo SetCode
   eosc setcode currency ../../../contracts/currency/currency.wast ../../../contracts/currency/currency.abi
   echo SetCode Done
@@ -242,7 +235,13 @@ RemoveDone
 TestStop=$(date +%s)
 ((TestStop=TestStop+DurationSeconds))
 for Inst in $(seq $Concurrency); do; CurrencyContractTransfer accounts_${Inst} &; done;
+if [[ $# == 4 ]]; then
+  tail -f "$PathToEOSD_stdoutFile" 2>&1 | grep --line-buffered _generate_block 2>&1 | grep --line-buffered perf 2>&1 &
+  tailpid=$!
+fi
 WaitDone
+[[ $# == 4 ]] && kill -9 $tailpid
+
 Now=$(date +%s)
 ((DurationSeconds=DurationSeconds + (Now - TestStop)))
 echo End Capacity Test $(date "+%Y%m%d_%H%M%S") - Note: Took $DurationSeconds seconds to complete
