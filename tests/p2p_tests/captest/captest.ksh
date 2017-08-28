@@ -56,6 +56,29 @@ if [[ $(pgrep captest.ksh | wc -l) > 1 ]]; then
 fi
 pkill -9 eosc
 
+
+function NewFile
+{
+  rm $1 2>/dev/null
+  touch $1
+}
+
+function RemoveDone
+{
+  for Inst in $(seq $Concurrency); do; rm accounts_${Inst}_done.txt 2>/dev/null; done;
+}
+
+function WaitDone
+{
+  for Inst in $(seq $Concurrency)
+  do
+    while [[ ! -e accounts_${Inst}_done.txt ]];
+    do
+      sleep 1
+    done
+  done
+}
+
 function CreateAccountsAndTransactions
 {
   count_start=$2
@@ -66,12 +89,10 @@ function CreateAccountsAndTransactions
   echo Working on $1
 
   echo Creating Keys for $1
-  rm ${1}_names.txt 2>/dev/null
-  touch ${1}_names.txt
-  rm ${1}_keys.txt 2>/dev/null
-  touch ${1}_keys.txt
-  rm ${1}_run.txt 2>/dev/null
-  touch ${1}_run.txt
+  NewFile ${1}_names.txt
+  NewFile ${1}_keys.txt
+  NewFile ${1}_run.txt
+
   for Unused in $(seq $NumberOfAccounts)
   do
     echo create key >> ${1}_run.txt
@@ -100,10 +121,8 @@ function CreateAccountsAndTransactions
   }' > ${1}_names.txt
   ((count_start += NumberOfAccounts))
 
-  rm ${1}_run.txt 2>/dev/null
-  touch ${1}_run.txt
-  rm ${1}_create_results.txt 2>/dev/null
-  touch ${1}_create_results.txt
+  NewFile ${1}_run.txt
+  NewFile ${1}_create_results.txt
   for Row in $(paste -d',' ${1}_names.txt ${1}_keys.txt)
   do
     Name=$(echo $Row | awk -F',' '{print $1}')
@@ -112,27 +131,23 @@ function CreateAccountsAndTransactions
   done
   eosc - < ${1}_run.txt >${1}_create_results.txt
 
-
   echo Preparing Transactions for $1
-  rm ${1}_trx.txt 2>/dev/null
-  # for MoreTrx in {1..1000}
-  # do
-    for Name in $(cat ${1}_names.txt)
-    do
-      echo transfer eos $Name 1 >> ${1}_trx.txt
-      #echo account $Name >> ${1}_trx.txt
-    done
-  # done
-  touch ${1}_create_done.txt
+  NewFile ${1}_trx.txt
+  for Name in $(cat ${1}_names.txt)
+  do
+    echo transfer eos $Name 1 >> ${1}_trx.txt
+  done
+  touch ${1}_done.txt
 }
 
 function RunOneCapTest
 {
-  ((CountEoscCalls=0))
-  rm ${1}_eosc_call_count.txt 2>/dev/null
+  ((eosc_call_count=0))
+  NewFile ${1}_eosc_call_count.txt
+  NewFile ${1}_trx_results.txt
   while :
   do
-    ((CountEoscCalls+=1))
+    ((eosc_call_count+=1))
     # Now=$(date +%s)
     # doesnt work, my output file disapears
     # timeout -sINT $((TestStop - Now)) ksh -c "eosc - < ${1}_trx.txt" >> ${1}_trx_results.txt 2>&1
@@ -143,12 +158,8 @@ function RunOneCapTest
     eosc - < ${1}_trx.txt >> ${1}_trx_results.txt 2>&1
     (( $(date +%s) >= TestStop )) && break
   done
-  ErrorCount=$(grep "^[0-9][0-9]* assert_exception: Assert Exception" ${1}_trx_results.txt | wc -l )
-  SuccessCount=$(grep $GrepSearchForSuccess ${1}_trx_results.txt | wc -l )
-  ((TrxAttempted = SuccessCount + ErrorCount))
-  echo $TrxAttempted > ${1}_trx_attempt_count.txt
-  echo $CountEoscCalls > ${1}_eosc_call_count.txt
-  touch ${1}_trx_done.txt
+  echo $eosc_call_count > ${1}_eosc_call_count.txt
+  touch ${1}_done.txt
 }
 
 #
@@ -156,61 +167,29 @@ function RunOneCapTest
 #
 if [[ $1 != 0 ]]; then
   ((count_start_offset=1))
-  for Inst in $(seq $Concurrency)
-  do
-    rm accounts_${Inst}_create_done.txt 2>/dev/null
-  done
+  RemoveDone
   for Inst in $(seq $Concurrency)
   do
     CreateAccountsAndTransactions accounts_${Inst} $count_start_offset &
     ((count_start_offset+=NumberOfAccounts))
   done
-
-  #
-  # Wait for completion
-  #
-  for Inst in $(seq $Concurrency)
-  do
-    while [[ ! -e accounts_${Inst}_create_done.txt ]];
-    do
-      sleep 1
-    done
-    ((count_start_offset+=NumberOfAccounts))
-  done
+  WaitDone
 fi
 
 echo ----------------------------------
-echo About to start capacity test, waiting 20 seconds for the load-average to go down.
-sleep 20
+echo About to start capacity test, waiting 5 seconds for the load-average to go down.
+sleep 5
 
 #
 # Begin capacity test
 #
 echo ----------------------------------
 echo Starting Capacity Test $(date "+%Y%m%d_%H%M%S")
-for Inst in $(seq $Concurrency)
-do
-  rm accounts_${Inst}_trx_results.txt 2>/dev/null
-  rm accounts_${Inst}_trx_done.txt 2>/dev/null
-done
+RemoveDone
 TestStop=$(date +%s)
 ((TestStop=TestStop+DurationSeconds))
-for Inst in $(seq $Concurrency)
-do
-  RunOneCapTest accounts_${Inst} &
-done
-
-#
-# Wait for completion
-#
-for Inst in $(seq $Concurrency)
-do
-  while [[ ! -e accounts_${Inst}_trx_done.txt ]];
-  do
-    sleep 1
-  done
-done
-
+for Inst in $(seq $Concurrency); do; RunOneCapTest accounts_${Inst} &; done
+WaitDone
 
 Now=$(date +%s)
 ((DurationSeconds=DurationSeconds + (Now - TestStop)))
@@ -224,8 +203,9 @@ echo ----------------------------------
 ((TrxAttempted=0))
 for Inst in $(seq $Concurrency)
 do
-  Tmp=$(awk '{ sum += $1 } END { print sum }' accounts_${Inst}_trx_attempt_count.txt)
+  Tmp=$(awk '/transaction_id|^[0-9][0-9]* assert_exception: Assert Exception/' accounts_${Inst}_trx_results.txt | wc -l)
   ((TrxAttempted += Tmp))
+  echo $Tmp > accounts_${Inst}_trx_attempt_count.txt
 done
 
 ((TrxSuccess=0))
