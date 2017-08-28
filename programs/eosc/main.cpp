@@ -159,6 +159,19 @@ char read_line_and_split (vector<string> &cmd_line, char tic) {
   string line;
   bool in_quote = (tic != '\0');
   getline(cin,line);
+  
+  //MP: Remove single quotes, and use space so I can run exec commands in batch files
+  //    Note: There are other changes going in so this will only forever be in *tps-test* branch.
+  //cerr << "MP Before: [" << line << endl;
+  string line2;
+  for(auto& iter: line) { if(iter!='\'') line2 = line2 + iter; }
+  line = line2;  
+  //cerr << "MP After : [" << line << endl;  
+  line2 = "";
+  for(auto& iter: line) { if(iter==' ') { cmd_line.push_back(line2); line2=""; } else { line2 += iter; } }
+  cmd_line.push_back(line2);
+  return '\0';
+
   size_t tic_pos = 0;
   size_t quote_end = 0;
   if (in_quote) {
@@ -422,6 +435,12 @@ int main( int argc, char** argv ) {
 
   try {
     if (cmd.size()) {
+    
+      //MP: Testing
+      //cerr << endl;
+      //for(auto iter: cmd)
+        //cerr << "Hmmmm [" << iter << "]" << endl;
+          
       int res = 0;
       if ((res = send_command(cmd)) != 0) {
         return res;
@@ -454,9 +473,13 @@ int main( int argc, char** argv ) {
       }
 
       if (!console || batch) {
+        //MP: Testing
+        //cerr << endl;
+        //for(auto iter: cmd_line)
+          //cerr << "Hmmmm [" << iter << "]" << endl;
         script.push_back (cmd_line);
       }
-      else {
+      else {      
         send_command (cmd_line);
       }
     }
