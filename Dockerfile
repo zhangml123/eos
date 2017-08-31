@@ -47,12 +47,16 @@ RUN cd /tmp \
   && mkdir -p /opt/eos/bin/data-dir && cd eos && mkdir build && cd build \
   && WASM_LLVM_CONFIG=/opt/wasm/bin/llvm-config cmake -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -DCMAKE_INSTALL_PREFIX=/opt/eos ../ \
   && make -j$(nproc) && make install && mv ../contracts / \
-  && ln -s /opt/eos/bin/eos* /usr/local/bin \
-  && rm -rf /tmp/eos*
+  && ln -s /opt/eos/bin/eos* /usr/local/bin 
 
-COPY ./Docker/config.ini genesis.json /
-COPY ./Docker/entrypoint.sh /sbin
+RUN cp /tmp/eos/Docker/config.ini /tmp/eos/genesis.json /
+RUN cp /tmp/eos/Docker/entrypoint.sh /sbin
+# COPY ./Docker/config.ini genesis.json /
+# COPY ./Docker/entrypoint.sh /sbin
 RUN chmod +x /sbin/entrypoint.sh
-VOLUME /opt/eos/bin/data-dir
+RUN mkdir -p /opt/eos/bin/data-dir
+# VOLUME /opt/eos/bin/data-dir
+RUN rm -rf /tmp/eos*
+
 EXPOSE 9876 8888
-ENTRYPOINT ["/sbin/entrypoint.sh"]
+ENTRYPOINT ["/sbin/entrypoint.sh", "--skip-transaction-signatures", "--resync-blockchain"]

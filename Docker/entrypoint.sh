@@ -1,6 +1,9 @@
 #!/bin/sh
 cd /opt/eos/bin
 
+# Clear out any previous data before starting server
+rm -rf /opt/eos/bin/data-dir/*
+
 if [ -f '/opt/eos/bin/data-dir/config.ini' ]; then
     echo
   else
@@ -19,4 +22,7 @@ if [ -d '/opt/eos/bin/data-dir/contracts' ]; then
     cp -r /contracts /opt/eos/bin/data-dir
 fi
 
-exec /opt/eos/bin/eosd
+# Kick off eosd server, let it warm up
+# it runs detached from this process so we can exit when done
+exec /opt/eos/bin/eosd $@
+
