@@ -16,6 +16,7 @@ namespace TOKEN_NAME {
    /**
     *  Transfer requires that the sender and receiver be the first two
     *  accounts notified and that the sender has provided authorization.
+    *  @abi currency action
     */
    struct Transfer {
       AccountName       from;
@@ -25,6 +26,7 @@ namespace TOKEN_NAME {
 
    /**
     *  @brief row in Account table stored within each scope
+    *  @abi currency table
     */
    struct Account {
       Account( CurrencyTokens b = CurrencyTokens() ):balance(b){}
