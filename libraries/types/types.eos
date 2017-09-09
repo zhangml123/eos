@@ -3,6 +3,7 @@ typedef Name           PermissionName
 typedef Name           FuncName
 typedef FixedString32  MessageName
 typedef FixedString32  TypeName
+typedef FixedString16  FieldName 
 
 # import account type as localtype
 
@@ -59,11 +60,11 @@ struct Action
    type   TypeName
 
 struct Table
-   table      Name       # the name of the table
-   indextype  TypeName   # the kind of index, i64, i128i128, etc
-   keynames   TypeName[] # names for the keys defined by keytype
-   keytype    TypeName[] # the meaning / type of key parameters, how to convert binary key to json
-   type       TypeName   # the meaning / type of the binary data stored in this table
+   table      Name        # the name of the table
+   indextype  TypeName    # the kind of index, i64, i128i128, etc
+   keynames   FieldName[] # names for the keys defined by keytype
+   keytype    TypeName[]  # the meaning / type of key parameters, how to convert binary key to json
+   type       TypeName    # the meaning / type of the binary data stored in this table
 
 struct Abi
    types   TypeDef[]
